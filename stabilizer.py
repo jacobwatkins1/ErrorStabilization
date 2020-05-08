@@ -1,14 +1,20 @@
+# Error stabilizing algorithm for solving noisy generalized eigenvector problem
+#
+# N matrices are sampled using Metropolis algorithm. 
+#
+# Adapted for python from Dean Lee's Matlab code, May 2020
+
 import numpy as np
 
-N = 100
-order = 5
-lowest_order_ratio = 3
-convergence_ratio = 0.6
-EC_step_coupling = 0.1
-target_coupling = 1.0
-errsize_nmat = 0.001
+N = 100                 # Dimension of Hilbert space
+order = 5               # Max order of eigenvector continuation
+lowest_order_ratio = 3  # Lowest order where convergence test is applied
+convergence_ratio = 0.6 # Standard for convergence rate
+EC_step_coupling = 0.1  # Increments in EC parameter
+target_coupling = 1.0   
+errsize_nmat = 0.001    # Error sizes of N and H matrices
 errsize_hmat = 0.01
-ntrials_nmat = 1000000
+ntrials_nmat = 1000000  # Sample size of N & H (i.e. no. of Metro steps)
 ntrials_hmat = 10000
 metro_step = 0.1
 nmat_delta = 0.0001
