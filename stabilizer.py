@@ -14,8 +14,8 @@ EC_step_coupling = 0.1  # Increments in EC parameter
 target_coupling = 1.0   
 errsize_nmat = 0.001    # Error sizes of N and H matrices
 errsize_hmat = 0.01
-ntrials_nmat = 1000000  # Sample size of N & H (i.e. no. of Metro steps)
-ntrials_hmat = 10000
+ntrials_nmat = 1000
+ntrials_hmat = 1000
 metro_step = 0.1
 nmat_delta = 0.0001
 
@@ -130,8 +130,7 @@ for ii in range(ntrials_nmat):
         mineig = mineig_new
 
     # If N is positive definite...
-    if mineig>0:
-        
+    if (mineig)>0:
         fraction = ntrials_hmat/guide - np.floor(ntrials_hmat/guide)
         if np.random.rand()<fraction:
             iterations_hmat = np.floor(ntrials_hmat/guide)+1
@@ -139,6 +138,7 @@ for ii in range(ntrials_nmat):
             iterations_hmat = np.floor(ntrials_hmat/guide)
         
         for jj in range(int(iterations_hmat)):
+
             hmat_err = np.random.rand(order,order)
             hmat_err = (hmat_err+hmat_err.T)/2*np.sqrt(2)
             hmat = hmat_start + errsize_hmat*hmat_err
@@ -158,16 +158,16 @@ for ii in range(ntrials_nmat):
                 overlap_temp = []
                 max_order_overlap_temp = []
                 for k in range(order):
-                    vtemp,dtemp = np.linalg.eig(np.dot(nmat[:k,:k],np.linalg.inv(hmat[:k,:k])))
-                    vsmall[:k,k] = vtemp[:k, np.argmin(dtemp)]
+                    vtemp,dtemp = np.linalg.eig(np.dot(nmat[:k+1,:k],np.linalg.inv(hmat[:k+1,:k+1])))
+                    vsmall[:k+1,k] = vtemp[:k+1, np.argmin(dtemp)]
                     overlap_temp[k] = \
-                        np.abs(np.dot(np.dot(vsmall_exact[:k,k].T,nmat_exact[:k,:k]),vsmall[:k,k]))/\
-                        np.sqrt(np.abs(np.dot(np.dot(vsmall_exact[:k,k].T,nmat_exact[:k,:k]),vsmall_exact[:k,k])*\
-                        np.abs(np.dot(np.dot(vsmall[:k,k].T,nmat_exact[:k,:k]),vsmall[:k,k]))))
+                        np.abs(np.dot(np.dot(vsmall_exact[:k+1,k].T,nmat_exact[:k+1,:k+1]),vsmall[:k+1,k]))/\
+                        np.sqrt(np.abs(np.dot(np.dot(vsmall_exact[:k+1,k].T,nmat_exact[:k+1,:k+1]),vsmall_exact[:k+1,k])*\
+                        np.abs(np.dot(np.dot(vsmall[:k+1,k].T,nmat_exact[:k+1,:k+1]),vsmall[:k+1,k]))))
                     max_order_overlap_temp[k] = \
-                        np.abs(np.dot(np.dot(vsmall_exact[:order,order].T,nmat_exact[:order,:k]),vsmall[:k,k]))/\
+                        np.abs(np.dot(np.dot(vsmall_exact[:order,order].T,nmat_exact[:order,:k+1]),vsmall[:k+1,k]))/\
                         np.sqrt(np.abs(np.dot(np.dot(vsmall_exact[:order,order].T,nmat_exact[:order,:order]),vsmall_exact[:order,order])*\
-                        np.abs(np.dot(np.dot(vsmall[:k,k].T,nmat_exact[:k,:k]),vsmall[:k,k]))))
+                        np.abs(np.dot(np.dot(vsmall[:k+1,k].T,nmat_exact[:k+1,:k]),vsmall[:k+1,k]))))
                 overlap_list = np.vstack((overlap_list,overlap_temp))
                 max_order_overlap_list = np.vstack((max_order_overlap_list,overlap_temp))
                 
