@@ -44,24 +44,37 @@ E0 = np.min(np.linalg.eigvals(Ht))
 nmat_exact = np.dot(v.T,v)
 hmat_exact = np.dot(v.T,np.dot(Ht,v))
 
+# Generate noisy N matrix 
 nmat_err = np.random.rand(order,order)
 nmat_err = (nmat_err + nmat_err.T)/2*np.sqrt(2)
 nmat_start = nmat_exact+errsize_nmat*nmat_err
 
+# Generate noisy H matrix 
 hmat_err = np.random.rand(order,order)
 hmat_err = (hmat_err + hmat_err.T)/2*np.sqrt(2)
 hmat_start = hmat_exact + errsize_hmat*hmat_err
 
+# Solve eigenvalues/vectors of H exactly, in subspace
 vsmall_exact = np.zeros((order,order))
 for k in range(1,order):
     dtemp,vtemp = np.linalg.eig(np.dot(nmat_exact[:k,:k],np.linalg.inv(hmat_exact[:k,:k])))
     vsmall_exact[:k,k]=vtemp[:k,np.argmin(dtemp)]
 
+# List of ground states at each order k of EC, exact and with noise
 e_exact = np.array([min(np.linalg.eigvals(np.dot(nmat_exact[:k,:k],np.linalg.inv(hmat_exact[:k,:k])))) for k in range(1,order+1)])
 e_start = np.array([min(np.linalg.eigvals(np.dot(nmat_start[:k,:k],np.linalg.inv(hmat_start[:k,:k])))) for k in range(1,order+1)])
 
-print(e_exact)
-print(e_start)
+print("Exact gs energy at each order:", e_exact)
+print("With noise:", e_start)
+
+# Method for computing overlaps. Inputs are vectors u and v, and norm matrix N
+# sandwiching them
+def overlap(u,v,N):
+    dotp = np.dot(np.dot(u.T,N),v)
+    normu = np.sqrt(np.abs(np.dot(np.dot(u.T,N),u)))
+    normv = np.sqrt(np.abs(np.dot(np.dot(v.T,N),v)))
+    return np.abs(dotp)/(normu*normv)
+
 overlap_start = np.zeros(order)
 max_order_overlap_start = np.zeros(order)
 max_order_overlap_exact = np.zeros(order)
