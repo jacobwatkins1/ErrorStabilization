@@ -84,6 +84,9 @@ gauss = np.exp(-sum(sum((nmat-nmat_start)**2))/(2*errsize_nmat**2))
 e_list = np.zeros(order)
 accept_nmat = 0
 accept_hmat = 0
+e_list = np.zeros((0,order))
+overlap_list = np.zeros((0,order))
+max_order_overlap_list = np.zeros((0,order))
 
 for ii in range(ntrial_nmat):
 
@@ -114,7 +117,7 @@ for ii in range(ntrial_nmat):
             hmat_err = (hmat_err+hmat_err.T)/2*np.sqrt(2)
             hmat = hmat_start + errsize_hmat*hmat_err
             e = []
-            for kin rnage order:
+            for k in range (order):
                 e.append(np.min(np.linalg.eigvals(np.dot(nmat[:k,:k],hmat[:k,:k]))))
             concave = 1
             for k in range(lowest_order_ratio,order):
@@ -122,8 +125,29 @@ for ii in range(ntrial_nmat):
                     concave = 0
             if concave == 1:
                 accept_hmat = accept_hmat + 1
-                e_list[accept_hmat,:] = e #This line will need to be addressed in python
+                e_list = np.vstack((e_list,e))
                 if (e_list.shape[0] > 1):
+                    print(e_exact,e_start,np.mean(e_list,0),np.std(e_list,0))
+
+                overlap_temp = []
+                max_order_overlap_temp = []
+                for k in range(order):
+                    vtemp,dtemp = np.linalg.eig(np.dot(nmat[:k,:k],np.linalg.inv(hmat[:k,:k])))
+                    vsmall[:k,k] = vtemp[:k, np.argmin(dtemp)]
+                    overlap_temp[k] = \
+                        np.abs(np.dot(np.dot(vsmall_exact[:k,k].T,nmat_exact[:k,:k]),vsmall[:k,k]))/\
+                        np.sqrt(np.abs(np.dot(np.dot(vsmall_exact[:k,k].T,nmat_exact[:k,:k]),vsmall_exact[:k,k])*\
+                        np.abs(np.dot(np.dot(vsmall[:k,k].T,nmat_exact[:k,:k]),vsmall[:k,k]))))
+                    max_order_overlap_temp[k] = \ 
+                        np.abs(np.dot(np.dot(vsmall_exact[:order,order].T,nmat_exact[:order,:k]),vsmall[:k,k]))/\
+                        np.sqrt(np.abs(np.dot(np.dot(vsmall_exact[:order,order].T,nmat_exact[:order,:order]),vsmall_exact[:order,order])*\
+                        np.abs(np.dot(np.dot(vsmall[:k,k].T,nmat_exact[:k,:k]),vsmall[:k,k]))))
+                overlap_list = np.vstack((overlap_list,overlap_temp))
+                max_order_overlap_list = np.vstack((max_order_overlap_list,overlap_temp))
+                
+                if e_list.shape[1] > 1:
+                    print(np.ones((1,order)),overlap_start,np.mean(overlap_start,0),np.std(overlap_start,0))
+                    print(max_order_overlap_exact,max_order_overlap_start,np.mean(max_order_overlap_list,0),np.std(max_order_overlap_list,0))
 
 
 
