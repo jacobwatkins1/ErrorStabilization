@@ -1,12 +1,18 @@
+# Error stabilizing algorithm for solving noisy generalized eigenvector problem
+#
+# N matrices are sampled using Metropolis algorithm. 
+#
+# Adapted for python from Dean Lee's Matlab code, May 2020
+
 import numpy as np
 
-N = 100
-order = 5
-lowest_order_ratio = 3
-convergence_ratio = 0.6
-EC_step_coupling = 0.1
-target_coupling = 1.0
-errsize_nmat = 0.001
+N = 100                 # Dimension of Hilbert space
+order = 5               # Max order of eigenvector continuation
+lowest_order_ratio = 3  # Lowest order where convergence test is applied
+convergence_ratio = 0.6 # Standard for convergence rate
+EC_step_coupling = 0.1  # Increments in EC parameter
+target_coupling = 1.0   
+errsize_nmat = 0.001    # Error sizes of N and H matrices
 errsize_hmat = 0.01
 ntrials_nmat = 1000
 ntrials_hmat = 1000
@@ -16,20 +22,25 @@ nmat_delta = 0.0001
 
 np.random.seed(3)
 
+# The following section 
 H0 = 2*np.random.rand(N,N)-1
 H1 = 2*np.random.rand(N,N)-1
 H0 = (H0+H0.T)/2
 H1 = (H1+H1.T)/2
 
 np.random.seed(13)
+# Extract ground states for small coupling, put them in matrix vv
 v = np.zeros((N,order))
+
 for nc in range(order):
     dd,vv = np.linalg.eig(H0+nc*EC_step_coupling*H1)
     v[:,nc] = vv[:,0]
 
+# Target Hamiltonian and desired ground state
 Ht = H0 + target_coupling*H1
 E0 = np.min(np.linalg.eigvals(Ht))
 
+# Exact N matrix and Hamiltonian in EC subspace
 nmat_exact = np.dot(v.T,v)
 hmat_exact = np.dot(v.T,np.dot(Ht,v))
 
@@ -76,6 +87,7 @@ print(overlap_start)
 print(max_order_overlap_start)
 print(max_order_overlap_exact)
 
+# The following section is independent of the above (save some initial variable copying)
 nmat = nmat_start.copy()
 mineig = np.min(np.linalg.eigvals(nmat))
 guide = 1/(np.exp(-mineig/nmat_delta)+1)
@@ -104,8 +116,8 @@ for ii in range(ntrials_nmat):
         accept_nmat = accept_nmat + 1
         mineig = mineig_new
 
-    if (mineig>0):
-
+    # If N is positive definite...
+    if (mineig)>0:
         fraction = ntrials_hmat/guide - np.floor(ntrials_hmat/guide)
         if np.random.rand()<fraction:
             iterations_hmat = np.floor(ntrials_hmat/guide)+1
