@@ -58,4 +58,73 @@ max_order_overlap_exact = np.zeros(k)
 for k in range(order):
     vtemp,dtemp = np.linalg.eig(np.dot(nmat_start[:k,:k],np.linalg.inv(hmat_start[:k,:k])))
     vsmall_start[:k,k] = vtemp[:k, np.argmin(dtemp)]
-    overlap_start[k]=np.abs(vsmall_start[:k,k].T
+    overlap_start[k]= \
+            np.abs(np.dot(np.dot(vsmall_exact[:k,k].T,nmat_exact[:k,:k]),vsmall_start[:k,k]))/\
+            np.sqrt(np.abs(np.dot(np.dot(vsmall_exact[:k,k].T,nmat_exact[:k,:k]),vsmall_exact[:k,k])*\
+            np.abs(np.dot(np.dot(vsmall_start[:k,k].T,nmat_exact[:k,:k]),vsmall_start[:k,k]))))
+    max_order_overlap_start[k] = \ 
+            np.abs(np.dot(np.dot(vsmall_exact[:order,order].T,nmat_exact[:order,:k]),vsmall_start[:k,k]))/\
+            np.sqrt(np.abs(np.dot(np.dot(vsmall_exact[:order,order].T,nmat_exact[:order,:order]),vsmall_exact[:order,order])*\
+            np.abs(np.dot(np.dot(vsmall_start[:k,k].T,nmat_exact[:k,:k]),vsmall_start[:k,k]))))
+    max_order_overlap_exact[k] = \
+            np.abs(np.dot(np.dot(vsmall_exact[:order,order].T,nmat_exact[:order,:k]),vsmall_exact[:k,k]))/\
+            np.sqrt(np.abs(np.dot(np.dot(vsmall_exact[:order,order].T,nmat_exact[:order,:order]),vsmall_exact[:order,order])*\
+            np.abs(np.dot(np.dot(vsmall_exact[:k,k].T,nmat_exact[:k,:k]),vsmall_exact[:k,k]))))
+
+
+print(overlap_start)
+print(max_order_overlap_start)
+print(max_order_overlap_exact)
+
+nmat = nmat_start.copy()
+mineig = np.min(np.linalg.eigvals(nmat))
+guide = 1/(np.exp(-mineig/nmat_delta)+1)
+gauss = np.exp(-sum(sum((nmat-nmat_start)**2))/(2*errsize_nmat**2))
+
+e_list = np.zeros(order)
+accept_nmat = 0
+accept_hmat = 0
+
+for ii in range(ntrial_nmat):
+
+    nmat_eps = metro_step*errsize_nmat*np.random.rand(order,order)
+    nmat_eps = (nmat_eps + nmat_eps.T)/2*np.sqrt(2)
+    nmat_new = nmat+nmat_eps
+    mineig_new = np.min(np.linalg.eigvals(nmat_new))
+    guide_new = 1/(np.exp(-mineig_new/nmat_delta)+1)
+    gauss_new = np.exp(-sum(sum((nmat_new-nmat_start)**2))/(2*errsize_nmat**2))
+
+    if (np.random.rand() < (guide_new*gauss_new)/(guide*gauss)):
+        nmat = nmat_new
+        guide = guide_new
+        gauss = gauss_new
+        accept_nmat = accept_nmat + 1
+        mineig = mineig_new
+
+    if mineig>0:
+
+        fraction = ntrials_hmat/guide - np.floor(ntrials_hmat/guide)
+        if np.random.rand()<fraction:
+            iterations_hmat = np.floor(ntrials_hmat/guide)+1
+        else:
+            iterations_hmat = np.floor(ntrials_hmat/guide)
+        
+        for jj in range(iterations_hmat):
+            hmat_err = np.random.rand(order,order)
+            hmat_err = (hmat_err+hmat_err.T)/2*np.sqrt(2)
+            hmat = hmat_start + errsize_hmat*hmat_err
+            e = []
+            for kin rnage order:
+                e.append(np.min(np.linalg.eigvals(np.dot(nmat[:k,:k],hmat[:k,:k]))))
+            concave = 1
+            for k in range(lowest_order_ratio,order):
+                if (np.abs(e[k-1]-e[k]) > convergence_ratio*np.abs(e[k-2]-e[k-1])):
+                    concave = 0
+            if concave == 1:
+                accept_hmat = accept_hmat + 1
+                e_list[accept_hmat,:] = e #This line will need to be addressed in python
+                if (e_list.shape[0] > 1):
+
+
+
+
