@@ -158,9 +158,9 @@ for ii in range(ntrials_nmat):
                 overlap_list = np.vstack((overlap_list,overlap_temp))
                 max_order_overlap_list = np.vstack((max_order_overlap_list,overlap_temp))
                 
-                if e_list.shape[1] > 1:
-                    print(np.ones((1,order)),overlap_start,np.mean(overlap_start,0),np.std(overlap_start,0))
-                    print(max_order_overlap_exact,max_order_overlap_start,np.mean(max_order_overlap_list,0),np.std(max_order_overlap_list,0))
+                #if e_list.shape[1] > 1:
+                print(np.ones((1,order)),overlap_start,np.mean(overlap_start,0),np.std(overlap_start,0))
+                print(max_order_overlap_exact,max_order_overlap_start,np.mean(max_order_overlap_list,0),np.std(max_order_overlap_list,0))
 
 
 
