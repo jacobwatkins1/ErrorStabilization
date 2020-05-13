@@ -6,13 +6,13 @@
 
 import numpy as np
 
-N = 20                 # Dimension of Hilbert space
+N = 100                 # Dimension of Hilbert space
 order = 5               # Max order of eigenvector continuation
 lowest_order_ratio = 3  # Lowest order where convergence test is applied
-convergence_ratio = 1.2 # Standard for convergence rate
+convergence_ratio = .6 # Standard for convergence rate
 EC_step_coupling = 0.1  # Increments in EC parameter
 target_coupling = 1.0   
-errsize_nmat = 0.001    # Error sizes of N and H matrices
+errsize_nmat = 0.01   # Error sizes of N and H matrices
 errsize_hmat = 0.01
 ntrials_nmat = 10000
 ntrials_hmat = 10000
@@ -20,7 +20,7 @@ metro_step = 0.1
 nmat_delta = 0.0001
 
 
-np.random.seed(3)
+np.random.seed(4) #If set to 4, converged instantly. When set to 3, did not converge
 
 # The following section 
 H0 = 2*np.random.rand(N,N)-1
@@ -159,34 +159,54 @@ for ii in range(ntrials_nmat):
 
             # Test for concavity/convergence, characterized by convergence_ratio
             for k in range(lowest_order_ratio,order):
-                if (np.abs(e[k-1]-e[k]) < convergence_ratio*np.abs(e[k-2]-e[k-1])):
-                    concave = False
-                    
+                if (np.abs(e[k-1]-e[k]) > convergence_ratio*np.abs(e[k-2]-e[k-1])):
+                    concave = False                   
+                #print(np.abs(e[k-1]-e[k])/np.abs(e[k-2]-e[k-1]))
              # If convergence is smooth, accept
             if concave:
                 print('accepted H matrix',flush=True)
                 accept_hmat = accept_hmat + 1
                 e_list = np.vstack((e_list,e))
                 if (e_list.shape[0] > 1):
-                    print(e_exact,e_start,np.mean(e_list,0),np.std(e_list,0))
+                    print('e_exact: ',e_exact)
+                    print('e_start: ',e_start)
+                    print('e_list mean: ',np.mean(e_list))
+                    print('e_list std: ',np.std(e_list))
+                    print()
+
+                    #print(e_exact,e_start,np.mean(e_list,0),np.std(e_list,0))
 
                 # Compute overlaps, noisy vs exact at each order, and noisy vs highest exact order
-                overlap_temp = []
-                max_order_overlap_temp = []
+                overlap_temp = np.zeros(order)
+                max_order_overlap_temp = np.zeros(order)
+                vsmall = np.zeros((order,order))
                 for k in range(order):
-                    vtemp,dtemp = np.linalg.eig(np.dot(nmat[:k+1,:k+1],np.linalg.inv(hmat[:k+1,:k+1])))
+                    dtemp,vtemp = np.linalg.eig(np.dot(nmat[:k+1,:k+1],np.linalg.inv(hmat[:k+1,:k+1])))
                     vsmall[:k+1,k] = vtemp[:k+1, np.argmin(dtemp)]
                     overlap_temp[k] = overlap(vsmall_exact[:k+1,k], vsmall[:k+1,k],nmat_exact[:k+1,:k+1])
-                    max_order_overlap_temp[k] = overlap(vsmall_exact[:order,:order],vsmall[:k+1,k],nmat_exact[:order,:order])
+                    max_order_overlap_temp[k] = overlap(vsmall_exact[:order,order-1],vsmall[:k+1,k],nmat_exact[:order,:order])
                 # Store results in overlap list
                 overlap_list = np.vstack((overlap_list,overlap_temp))
                 max_order_overlap_list = np.vstack((max_order_overlap_list,overlap_temp))
 
                 
-                #if e_list.shape[1] > 1:
-                print(np.ones((1,order)),overlap_start,np.mean(overlap_start,0),np.std(overlap_start,0))
-                print(max_order_overlap_exact,max_order_overlap_start,np.mean(max_order_overlap_list,0),np.std(max_order_overlap_list,0))
+                if e_list.shape[1] > 1:
+                    print()
+                    print(np.ones((1,order)))
+                    print('overlap_start: ',overlap_start)
+                    print('overlap_start mean: ',np.mean(overlap_start))
+                    print('overlap_start std: ',np.std(overlap_start))
 
+                    print()
+                    print('max_order_overlap_exact: ',max_order_overlap_exact)
+                    print('max_order_overlap_start: ',max_order_overlap_start)
+                    print('max_order_overlap_list mean: ',np.mean(max_order_overlap_list))
+                    print('max_order_overlap_list std: ',np.std(max_order_overlap_list))
+                    print('---------------------------------')
+                    #print(np.ones((1,order)),overlap_start,np.mean(overlap_start),np.std(overlap_start))
+                    #print(max_order_overlap_exact,max_order_overlap_start,np.mean(max_order_overlap_list,0),np.std(max_order_overlap_list,0))
+
+    #vsmall_start[:k,k-1] = vtemp[:k, np.argmin(dtemp)]
 
 #    \
  #           np.abs(np.dot(np.dot(vsmall_exact[:order,order-1].T,nmat_exact[:order,:k]),vsmall_start[:k,k-1]))/\
