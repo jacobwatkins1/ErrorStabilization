@@ -67,114 +67,149 @@ e_start = np.array([min(np.linalg.eigvals(np.dot(nmat_start[:k,:k],np.linalg.inv
 print("Exact gs energy at each order:", e_exact)
 print("With noise:", e_start)
 
-# Method for computing overlaps. Inputs are vectors u and v, and norm matrix N
-# sandwiching them
-def overlap(u,v,N):
-    dotp = np.dot(np.dot(u.T,N),v)
-    normu = np.sqrt(np.abs(np.dot(np.dot(u.T,N),u)))
-    normv = np.sqrt(np.abs(np.dot(np.dot(v.T,N),v)))
-    return np.abs(dotp)/(normu*normv)
+# Methods for computing overlaps. Inputs are vectors u and v, and norm matrix N
+# sandwiched between them
+def inprod(u, v, N):
+    return np.dot(np.dot(u.T,N),v)
+
+#Overlap is cosine of angle between vectors, absolute value. 
+def overlap(u, v, N):
+    usize = u.size
+    vsize = v.size
+    dotp = inprod(u, v, N[:usize,:vsize])
+    if dotp ==0: return 0
+    return np.abs(dotp)/(np.sqrt(np.abs(inprod(u,u,N[:usize,:usize])*inprod(v,v,N[:vsize,:vsize]))))
 
 overlap_start = np.zeros(order)
 max_order_overlap_start = np.zeros(order)
 max_order_overlap_exact = np.zeros(order)
 vsmall_start = np.zeros((order,order))
+
+#Compute overlaps (i.e. cosine theta) at each order of EC
 for k in range(1,order+1):
     dtemp,vtemp = np.linalg.eig(np.dot(nmat_start[:k,:k],np.linalg.inv(hmat_start[:k,:k])))
     vsmall_start[:k,k-1] = vtemp[:k, np.argmin(dtemp)]
-    overlap_start[k-1]= \
-            np.abs(np.dot(np.dot(vsmall_exact[:k,k-1].T,nmat_exact[:k,:k]),vsmall_start[:k,k-1]))/\
-            np.sqrt(np.abs(np.dot(np.dot(vsmall_exact[:k,k-1].T,nmat_exact[:k,:k]),vsmall_exact[:k,k-1])*\
-            np.abs(np.dot(np.dot(vsmall_start[:k,k-1].T,nmat_exact[:k,:k]),vsmall_start[:k,k-1]))))
-    max_order_overlap_start[k-1] = \
-            np.abs(np.dot(np.dot(vsmall_exact[:order,order-1].T,nmat_exact[:order,:k]),vsmall_start[:k,k-1]))/\
-            np.sqrt(np.abs(np.dot(np.dot(vsmall_exact[:order,order-1].T,nmat_exact[:order,:order]),vsmall_exact[:order,order-1])*\
-            np.abs(np.dot(np.dot(vsmall_start[:k,k-1].T,nmat_exact[:k,:k]),vsmall_start[:k,k-1]))))
-    max_order_overlap_exact[k-1] = \
-            np.abs(np.dot(np.dot(vsmall_exact[:order,order-1].T,nmat_exact[:order,:k]),vsmall_exact[:k,k-1]))/\
-            np.sqrt(np.abs(np.dot(np.dot(vsmall_exact[:order,order-1].T,nmat_exact[:order,:order]),vsmall_exact[:order,order-1])*\
-            np.abs(np.dot(np.dot(vsmall_exact[:k,k-1].T,nmat_exact[:k,:k]),vsmall_exact[:k,k-1]))))
+    
+    overlap_start[k-1] = overlap(vsmall_exact[:k,k-1],vsmall_start[:k,k-1],nmat_exact[:k,:k])
+    max_order_overlap_start[k-1] = overlap(vsmall_exact[:order,order-1],vsmall_start[:k,k-1],nmat_exact[:order,:order])
+    max_order_overlap_exact[k-1] = overlap(vsmall_exact[:order,order-1],vsmall_exact[:k,k-1],nmat_exact[:order,:order])
 
+print("Overlap of...")
+print("noisy vs exact EC at each order:", overlap_start)
+print("noisy kth order with with exact max order:", max_order_overlap_start)
+print("kth exact with exact max order:", max_order_overlap_exact)
 
-print(overlap_start)
-print(max_order_overlap_start)
-print(max_order_overlap_exact)
+# The following section is essentially independent of the above (save some initial variable copying)
 
-# The following section is independent of the above (save some initial variable copying)
-nmat = nmat_start.copy()
-mineig = np.min(np.linalg.eigvals(nmat))
-guide = 1/(np.exp(-mineig/nmat_delta)+1)
-gauss = np.exp(-sum(sum((nmat-nmat_start)**2))/(2*errsize_nmat**2))
+nmat = nmat_start.copy()                  # Initial N for Metropolis walk
+mineig = np.min(np.linalg.eigvals(nmat))  # Minium eigenvalue of N
+guide = 1/(np.exp(-mineig/nmat_delta)+1)  # Logistic function for filtering ill-behaved N matrices
+gauss = np.exp(-sum(sum((nmat-nmat_start)**2))/(2*errsize_nmat**2)) 
 
-e_list = np.zeros(order)
-accept_nmat = 0
-accept_hmat = 0
+e_list = np.zeros(order) # 
+accept_nmat = 0          # Counts number of accepted N matrices
+accept_hmat = 0          # Counts number of accepted H matrices
 e_list = np.zeros((0,order))
 overlap_list = np.zeros((0,order))
 max_order_overlap_list = np.zeros((0,order))
 
+# Loop over N sampling
 for ii in range(ntrials_nmat):
 
+    #Step to new N matrix
     nmat_eps = metro_step*errsize_nmat*np.random.rand(order,order)
     nmat_eps = (nmat_eps + nmat_eps.T)/2*np.sqrt(2)
     nmat_new = nmat+nmat_eps
+
+    # Test for acceptance. We ask nmat_new be close to the old, and mineig_new be positive
     mineig_new = np.min(np.linalg.eigvals(nmat_new))
     guide_new = 1/(np.exp(-mineig_new/nmat_delta)+1)
     gauss_new = np.exp(-sum(sum((nmat_new-nmat_start)**2))/(2*errsize_nmat**2))
-
     if (np.random.rand() < (guide_new*gauss_new)/(guide*gauss)):
+        #Commit to step
         nmat = nmat_new
         guide = guide_new
         gauss = gauss_new
         accept_nmat = accept_nmat + 1
         mineig = mineig_new
 
-    # If N is positive definite...
+    #Check n_mat positive definite...
     if (mineig)>0:
+        
         fraction = ntrials_hmat/guide - np.floor(ntrials_hmat/guide)
         if np.random.rand()<fraction:
             iterations_hmat = np.floor(ntrials_hmat/guide)+1
         else:
             iterations_hmat = np.floor(ntrials_hmat/guide)
-        
+
+        # Sample H matrices using simple Gaussian sampling (likely to be changed in future version)
         for jj in range(int(iterations_hmat)):
 
+            # Generate noisy H
             hmat_err = np.random.rand(order,order)
             hmat_err = (hmat_err+hmat_err.T)/2*np.sqrt(2)
             hmat = hmat_start + errsize_hmat*hmat_err
-            e = []
-            for k in range (1,order+1):
+            
+            e = [] # list of gs energies at each order (ie each submatrix)
+            for k in range(1,order+1):
                 e.append(np.min(np.linalg.eigvals(np.dot(nmat[:k,:k],hmat[:k,:k]))))
-            concave = 1
+
+            # Test for concavity/convergence, with acceptance characterized by convergence_ratio
+            concave = True
             for k in range(lowest_order_ratio,order):
                 if (np.abs(e[k-1]-e[k]) > convergence_ratio*np.abs(e[k-2]-e[k-1])):
-                    concave = 0
-            if concave == 1:
-                accept_hmat = accept_hmat + 1
+                    concave = False
+                    
+            # If convergence is smooth, accept
+            if concave:
+                accept_hmat = accept_hmat + 1 #Increment acceptance count
                 e_list = np.vstack((e_list,e))
                 if (e_list.shape[0] > 1):
                     print(e_exact,e_start,np.mean(e_list,0),np.std(e_list,0))
 
+                # Compute overlaps, noisy vs exact at each order, and noisy vs highest exact order
                 overlap_temp = []
                 max_order_overlap_temp = []
                 for k in range(order):
                     vtemp,dtemp = np.linalg.eig(np.dot(nmat[:k+1,:k],np.linalg.inv(hmat[:k+1,:k+1])))
                     vsmall[:k+1,k] = vtemp[:k+1, np.argmin(dtemp)]
-                    overlap_temp[k] = \
-                        np.abs(np.dot(np.dot(vsmall_exact[:k+1,k].T,nmat_exact[:k+1,:k+1]),vsmall[:k+1,k]))/\
-                        np.sqrt(np.abs(np.dot(np.dot(vsmall_exact[:k+1,k].T,nmat_exact[:k+1,:k+1]),vsmall_exact[:k+1,k])*\
-                        np.abs(np.dot(np.dot(vsmall[:k+1,k].T,nmat_exact[:k+1,:k+1]),vsmall[:k+1,k]))))
-                    max_order_overlap_temp[k] = \
-                        np.abs(np.dot(np.dot(vsmall_exact[:order,order].T,nmat_exact[:order,:k+1]),vsmall[:k+1,k]))/\
-                        np.sqrt(np.abs(np.dot(np.dot(vsmall_exact[:order,order].T,nmat_exact[:order,:order]),vsmall_exact[:order,order])*\
-                        np.abs(np.dot(np.dot(vsmall[:k+1,k].T,nmat_exact[:k+1,:k]),vsmall[:k+1,k]))))
+                    overlap_temp[k] = overlap(vsmall_exact[:k+1,k], vsmall[:k+1,k],nmat_exact[:k+1,:k+1])
+                    max_order_overlap_temp[k] = overlap(vsmall_exact[:order,:order],vsmall[:k+1,k],nmat_exact[:order,:order])
+                # Store results in overlap list
                 overlap_list = np.vstack((overlap_list,overlap_temp))
                 max_order_overlap_list = np.vstack((max_order_overlap_list,overlap_temp))
+
                 
                 if e_list.shape[1] > 1:
                     print(np.ones((1,order)),overlap_start,np.mean(overlap_start,0),np.std(overlap_start,0))
                     print(max_order_overlap_exact,max_order_overlap_start,np.mean(max_order_overlap_list,0),np.std(max_order_overlap_list,0))
 
 
+#    \
+ #           np.abs(np.dot(np.dot(vsmall_exact[:order,order-1].T,nmat_exact[:order,:k]),vsmall_start[:k,k-1]))/\
+  #          np.sqrt(np.abs(np.dot(np.dot(vsmall_exact[:order,order-1].T,nmat_exact[:order,:order]),vsmall_exact[:order,order-1])*\
+   #         np.abs(np.dot(np.dot(vsmall_start[:k,k-1].T,nmat_exact[:k,:k]),vsmall_start[:k,k-1]))))
+#overlap_start[k-1]= \
+     #    np.abs(np.dot(np.dot(vsmall_exact[:k,k-1].T,nmat_exact[:k,:k]),vsmall_start[:k,k-1]))/\
+    #     np.sqrt(np.abs(np.dot(np.dot(vsmall_exact[:k,k-1].T,nmat_exact[:k,:k]),vsmall_exact[:k,k-1])*\
+     #    np.abs(np.dot(np.dot(vsmall_start[:k,k-1].T,nmat_exact[:k,:k]),vsmall_start[:k,k-1]))))
 
+#    \
+ #           np.abs(np.dot(np.dot(vsmall_exact[:order,order-1].T,nmat_exact[:order,:k]),vsmall_start[:k,k-1]))/\
+  #          np.sqrt(np.abs(np.dot(np.dot(vsmall_exact[:order,order-1].T,nmat_exact[:order,:order]),vsmall_exact[:order,order-1])*\
+   #         np.abs(np.dot(np.dot(vsmall_start[:k,k-1].T,nmat_exact[:k,:k]),vsmall_start[:k,k-1]))))
 
+#    \
+#            np.abs(np.dot(np.dot(vsmall_exact[:order,order-1].T,nmat_exact[:order,:k]),vsmall_exact[:k,k-1]))/\
+#            np.sqrt(np.abs(np.dot(np.dot(vsmall_exact[:order,order-1].T,nmat_exact[:order,:order]),vsmall_exact[:order,order-1])*\
+#            np.abs(np.dot(np.dot(vsmall_exact[:k,k-1].T,nmat_exact[:k,:k]),vsmall_exact[:k,k-1]))))
+
+ #                   \
+  #                      np.abs(np.dot(np.dot(vsmall_exact[:k+1,k].T,nmat_exact[:k+1,:k+1]),vsmall[:k+1,k]))/\
+   #                     np.sqrt(np.abs(np.dot(np.dot(vsmall_exact[:k+1,k].T,nmat_exact[:k+1,:k+1]),vsmall_exact[:k+1,k])*\
+    #                    np.abs(np.dot(np.dot(vsmall[:k+1,k].T,nmat_exact[:k+1,:k+1]),vsmall[:k+1,k]))))
+
+ #                    \
+  #                      np.abs(np.dot(np.dot(vsmall_exact[:order,order].T,nmat_exact[:order,:k+1]),vsmall[:k+1,k]))/\
+   #                     np.sqrt(np.abs(np.dot(np.dot(vsmall_exact[:order,order].T,nmat_exact[:order,:order]),vsmall_exact[:order,order])*\
+    #                    np.abs(np.dot(np.dot(vsmall[:k+1,k].T,nmat_exact[:k+1,:k]),vsmall[:k+1,k]))))
