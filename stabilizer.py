@@ -6,16 +6,16 @@
 
 import numpy as np
 
-N = 100                 # Dimension of Hilbert space
+N = 20                 # Dimension of Hilbert space
 order = 5               # Max order of eigenvector continuation
 lowest_order_ratio = 3  # Lowest order where convergence test is applied
-convergence_ratio = 0.6 # Standard for convergence rate
+convergence_ratio = 1.2 # Standard for convergence rate
 EC_step_coupling = 0.1  # Increments in EC parameter
 target_coupling = 1.0   
 errsize_nmat = 0.001    # Error sizes of N and H matrices
 errsize_hmat = 0.01
-ntrials_nmat = 1000
-ntrials_hmat = 1000
+ntrials_nmat = 10000
+ntrials_hmat = 10000
 metro_step = 0.1
 nmat_delta = 0.0001
 
@@ -131,6 +131,7 @@ for ii in range(ntrials_nmat):
 
     # If N is positive definite...
     if (mineig)>0:
+        print('accepted N matrix',flush=True)
         fraction = ntrials_hmat/guide - np.floor(ntrials_hmat/guide)
         if np.random.rand()<fraction:
             iterations_hmat = np.floor(ntrials_hmat/guide)+1
@@ -146,10 +147,14 @@ for ii in range(ntrials_nmat):
             for k in range (1,order+1):
                 e.append(np.min(np.linalg.eigvals(np.dot(nmat[:k,:k],hmat[:k,:k]))))
             concave = 1
+            #print(np.abs(e[lowest_order_ratio-2]-e[lowest_order_ratio-1]))
+
+
             for k in range(lowest_order_ratio,order):
-                if (np.abs(e[k-1]-e[k]) > convergence_ratio*np.abs(e[k-2]-e[k-1])):
+                if (np.abs(e[k-1]-e[k]) < convergence_ratio*np.abs(e[k-2]-e[k-1])):
                     concave = 0
             if concave == 1:
+                print('accepted H matrix',flush=True)
                 accept_hmat = accept_hmat + 1
                 e_list = np.vstack((e_list,e))
                 if (e_list.shape[0] > 1):
@@ -158,7 +163,7 @@ for ii in range(ntrials_nmat):
                 overlap_temp = []
                 max_order_overlap_temp = []
                 for k in range(order):
-                    vtemp,dtemp = np.linalg.eig(np.dot(nmat[:k+1,:k],np.linalg.inv(hmat[:k+1,:k+1])))
+                    vtemp,dtemp = np.linalg.eig(np.dot(nmat[:k+1,:k+1],np.linalg.inv(hmat[:k+1,:k+1])))
                     vsmall[:k+1,k] = vtemp[:k+1, np.argmin(dtemp)]
                     overlap_temp[k] = \
                         np.abs(np.dot(np.dot(vsmall_exact[:k+1,k].T,nmat_exact[:k+1,:k+1]),vsmall[:k+1,k]))/\
