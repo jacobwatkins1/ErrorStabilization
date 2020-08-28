@@ -1,0 +1,11 @@
+*.png
+*.lyx
+*.lyx~
+example1d.py
+main_old.py
+moduleTest.py
+multitest.py
+multitest2.py
+sampleTest.py
+stabilizer.py
+stabilizer.m
