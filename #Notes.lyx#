@@ -1,0 +1,387 @@
+#LyX 2.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 544
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\use_minted 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Error Stabilization Notes
+\end_layout
+
+\begin_layout Section
+Program Overview
+\end_layout
+
+\begin_layout Standard
+The core of the program is the stabilize function.
+ It takes a norm matrix and a hamiltonian of the same shape as inputs, with
+ a number of optional inputs that allow the parameters of the stabilization
+ to be changed.
+\end_layout
+
+\begin_layout Standard
+The program begins by calculating a list of norm matrices.
+ The process for calculating these norm matrices will be described in more
+ detail later in these notes.
+ The basic loop is a markov-chain Monte Carlo optimization that maximizes
+ the lowest eigenvalue of the norm matrix.
+ Once it is positive definite, the matrix is accepted into the full list.
+\end_layout
+
+\begin_layout Standard
+A similar process is repeated to gather a list of acceptable H matrices
+ for each N matrix.
+ If the autotune flag is set to True, the program will attempt to find an
+ optimal configuration of step size and acceptance width.
+ The fittness parameter for this selection is the sum of mean and standard
+ deviation for the first 1000 matrices optimized using markov-chain Monte
+ Carlo.
+ The optimization is done with a logarithmic grid search.
+ Once an optimal width and step are selected, the width is reduced to the
+ width specified when the function is called.
+ Matrices are only accepted when the width is at its final, cooled value.
+ If convergence ratio is stuck at a local minima, the width can be increased
+ and 'recooled' back down to try to break it out of the local minima.
+ 
+\end_layout
+
+\begin_layout Standard
+Matrices are accepted to a list if their convergence ratio is less than
+ the cutoff and the width is at its final value.
+ If the recooling process has fun many times and there are very few accepted
+ H matrices, then it gives up on the current N matrix.
+\end_layout
+
+\begin_layout Standard
+Once matrices are accepted, the integral of the weigth function is calculated,
+ and used to calculate observables.
+\end_layout
+
+\begin_layout Section
+Norm Matrix Selection
+\end_layout
+
+\begin_layout Standard
+The condition used to select norm matrices is its lowest eigenvalue.
+ Its acceptance guide is given by
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{1}{\exp(-\lambda/\delta_{n})+1}\exp\left(\frac{\sum_{i,j}(N-N_{start})}{2\sigma^{2}}\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The first sigmoid ensures that matrices with higher minimal eigenvalues
+ are accepted with higher probability.
+ The second gaussian ensures that the random walk does not wander too far
+ from the expected range 
+\begin_inset Formula $\sigma$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+At each step, the norm matrix is stepped in a random direction proportional
+ to stepsize and the expected range.
+ This step is always symmeterized to keep the resulting matrix hermitian.
+ 
+\end_layout
+
+\begin_layout Standard
+The guide is calculated for each trial norm matrix and accepted with probability
+ given by 
+\begin_inset Formula $w_{new}/w_{old},$
+\end_inset
+
+where 
+\begin_inset Formula $w_{old}$
+\end_inset
+
+ is the previous acceptance guide that was accepted.
+ 
+\end_layout
+
+\begin_layout Standard
+The process repeats this walk.
+ If a norm matrix is accepted and has positive eigenvalues, then it is appended
+ to a list.
+ This process is repeated until there are as many norm matrices as specified
+ by the run parameters.
+ 
+\end_layout
+
+\begin_layout Section
+H Matrix Selection
+\end_layout
+
+\begin_layout Subsection
+Autotuning
+\end_layout
+
+\begin_layout Standard
+If autotuning is turned on, then the stepsize and width of the acceptance
+ guide are tuned to give faster convergence.
+ The program executes a rough logarithmic gridsearch and for each combination
+ of width and stepsize runs the Markov Chain Monte Carlo for 1000 steps.
+ It computes the mean of these steps and the standard deviation.
+ The best parameters are chosen as those where the sum of mean and standard
+ deviation are minimal.
+ This is a rough condition, but it is simple and has given good results.
+ 
+\end_layout
+
+\begin_layout Standard
+Once starting conditions are selected, a cooling schedule is determined
+ so the width of the acceptance guide decreases to a smaller value.
+ If autotuning is turned off, the cooling schedule is just the initial condition
+s given.
+\end_layout
+
+\begin_layout Subsection
+H Matrix Steps
+\end_layout
+
+\begin_layout Standard
+The steps for H matrix selection are very similar to those used for norm
+ matrix selection.
+ This process is repeated for each Norm Matrix selected in the previous
+ part.
+ 
+\end_layout
+
+\begin_layout Standard
+The condition minimized is the maximal convergence ratio for the last three
+ orders, given by 
+\begin_inset Formula 
+\[
+c_{i}=\frac{E_{i-1}-E_{i}}{E_{i-2}-E_{i-1}}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The eigenvalues calculated here, E, are solutions to the generalized eigenvalue
+ problem
+\begin_inset Formula 
+\[
+Hv=NEv
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The guide is calculated as
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{1}{\exp((c-c_{target})/\delta_{H})+1}\exp\left(\frac{\sum_{i,j}(H-H_{start})}{2\sigma^{2}}\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+With the probability of acceptance again given by 
+\family roman
+\series medium
+\shape up
+\size normal
+\emph off
+\bar no
+\strikeout off
+\xout off
+\uuline off
+\uwave off
+\noun off
+\color none
+
+\begin_inset Formula $w_{new}/w_{old}$
+\end_inset
+
+.
+ 
+\end_layout
+
+\begin_layout Standard
+When the convergence is less than the target convergence and the matrix
+ is accepted, it is appended to a list.
+\end_layout
+
+\begin_layout Standard
+If the standard deviation of the last many convergences is very small, the
+ program determines that it is stuck.
+ To resolve this, it creates a new cooling schedule to warm and then recool
+ the accept
+\end_layout
+
+\begin_layout Subsection
+Weight Function Integral
+\end_layout
+
+\begin_layout Standard
+For each matrix in the list, the weight function integral is calculated.
+ This is accomplished by first constructing a normalized multivariate gaussian
+ distribution with the same mean and standard deviation.
+\end_layout
+
+\begin_layout Standard
+The form of this gaussian is
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{1}{\sqrt{(2\pi)^{L}|C|}}\exp(-\frac{1}{2}(x-\mu)C^{-1}(x-\mu))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Where C is the covariance matrix for the distribution,
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+C_{ij}=\left\langle (H_{i}-\bar{H}_{i})(H_{j}-\bar{H}_{j})\right\rangle 
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+where i and j loop over all degrees of freedom in the matrices.
+\end_layout
+
+\begin_layout Standard
+This distribution is normalized and therefore its integral is know.
+ The gaussian distribution is then resampled with the same Markov Chain
+ Monte Carlo methods used above, and for each matrix sampled we compute
+ its guide function as previously, as well as its value in the gaussian
+ distribution it was sampled from.
+ We can then calculate the weight function integral as
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\int wdH=\left\langle \frac{w(H)}{G(H)}\right\rangle 
+\]
+
+\end_inset
+
+ where G is the gaussian distribution and w is the weight function used
+ when first sampling H matrices.
+\end_layout
+
+\begin_layout Section
+Calculating Observables
+\end_layout
+
+\begin_layout Standard
+For each norm matrix, we computed the weight function integral and the mean
+ H matrix.
+ We form pairs of norm and H matrices in this way, and for each calculate
+ the observable we are interested in, for example the eigenvectors or lowest
+ eigenvalue.
+ We then weight these observables by their weight function integral to produce
+ our final result.
+ 
+\end_layout
+
+\end_body
+\end_document

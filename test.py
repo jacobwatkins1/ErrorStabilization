@@ -15,7 +15,7 @@ metro_step = 0.1
 nmat_delta = 0.0001
 autotune=True
 
-np.random.seed(9) #
+np.random.seed(1) #
 
 # The following section
 H0 = 2*np.random.rand(N,N)-1

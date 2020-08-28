@@ -15,7 +15,7 @@ class Pair(object):
         self.wInt = wInt
 
 
-def stabilize(N,H,numPairs=10,stepN=0.1,stepH=0.1,deltaN=1e-4,deltaH=1e-4,errsizeN=0.01,errsizeH=0.01,lowestOrderRatio=2,convergenceRatio=0.3,hSamples=1000,autotune=False):
+def stabilize(N,H,numPairs=10,stepN=0.1,stepH=0.1,deltaN=1e-4,deltaH=1e-4,errsizeN=0.01,errsizeH=0.01,lowestOrderRatio=2,convergenceRatio=0.5,hSamples=10000,autotune=False):
     n = N.copy()
     h = H.copy()
 
@@ -67,6 +67,8 @@ def stabilize(N,H,numPairs=10,stepN=0.1,stepH=0.1,deltaN=1e-4,deltaH=1e-4,errsiz
         hList = []
         convList = []
         trials = 0
+        coolCycles = 0
+        addNorm = True
         while len(hList) < hSamples:
             trials+=1
             deltaH = coolSchedule[0]
@@ -82,17 +84,24 @@ def stabilize(N,H,numPairs=10,stepN=0.1,stepH=0.1,deltaN=1e-4,deltaH=1e-4,errsiz
             if convStd/convMean < trials*1e-6 and accepted == False:
                 coolSchedule = np.linspace(deltaH*100,deltaH,1000) #recool
                 trials = 0
-                print('resetting cooling')
+                coolCycles += 1
+                if verbose: print('resetting cooling',flush=True)
             if accepted and len(coolSchedule) > 1:
                 coolSchedule = np.delete(coolSchedule,0)
-            if accepted and len(coolSchedule)<2 and np.abs(convMean-np.mean(convList[-100:])) < convStd/100 and convergence < np.mean(convList[-100:]):
-                convergence = 0
+            #if accepted and len(coolSchedule)<2 and np.abs(convMean-np.mean(convList[-100:])) < convStd/200 and convergence < np.mean(convList[-100:]):
+            #    convergence = 0
+            if coolCycles > 20 and len(hList) < hSamples/10:
+                #This matrix isn't working, abort.
+                if verbose: print('Insufficient valid H matrices. Proceeding to next matrix')
+                #nList.remove(n)
+                addNorm = False
+                break
             if accepted and convergence < convergenceRatio and len(coolSchedule)<2:
                 hList.append(h)
                 print('H matrix accepted. Total H matrices: ',len(hList),flush=True)
 
-        wInt,h = calcWeightInt(hList,H,n,stepH,deltaH,errsizeH,lowestOrderRatio,convergenceRatio)
-        pairs.append(Pair(h,n,wInt))
+        if addNorm: wInt,h = calcWeightInt(hList,H,n,stepH,deltaH,errsizeH,lowestOrderRatio,convergenceRatio)
+        if addNorm: pairs.append(Pair(h,n,wInt))
     wTot = 0
     for p in pairs:
         wTot += p.wInt
